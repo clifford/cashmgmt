@@ -1,0 +1,158 @@
+Been experimenting with the database functions as well as annotating transactions. Here is what I've found so far. I'd appreciate feedback from the datomic team if I'm doing something completely wrong here.
+
+Here is my example
+
+https://gist.github.com/2635666
+
+Creating functions in clojure isn't to well documented but basically you do the following:
+
+{ :db/id #db/id [:db.part/user]
+
+    :db/ident :credit
+
+    :db/fn #db/fn { :lang "clojure"
+
+                    :params [db id amount]
+
+                    :code "(let [ e (datomic.api/entity db id)
+
+                                  min-balance (:account/min-balance e)
+
+                                  balance (+ (:account/balance e) amount) ] 
+
+                                  (if (>= balance min-balance)
+
+                                    [[:db/add id :account/balance balance ]]
+
+                                    (throw (Exception.  \"Insufficient funds\"))))" }}
+
+Make special note that :code only contains the function body and not a (fn […]) construct. Be sure to define the params in the params key of the map.
+
+Throw an exception to cancel the transaction.
+
+Call it like this:
+
+(d/transact conn [[:credit to amount]])
+
+I was also able to create a function calling other functions. You just do this by adding the function call in the output list just like if you were calling it directly:
+
+{ :db/id #db/id [:db.part/user]
+
+    :db/ident :transfer
+
+    :db/fn #db/fn { :lang "clojure"
+
+                    :params [db from to amount]
+
+                    :code "[[:credit from (- amount)]
+
+                           [:credit to amount]]"}}
+
+Now since there isn't really any real logic here I don't know if this is a superfluous use of a database function as I could just as easily have combined two calls to credit in a single transaction from a regular clojure function.
+
+Annotations
+
+Instead of creating a separate transfer entity as you would in a traditional database, I thought I'd experiment in piggy backing on top of transactions adding transaction data to the transaction entity.
+
+(defn transfer [ from to amount note]
+
+  (let [txid (datomic.api/tempid :db.part/tx)]
+
+    (d/transact conn [[:transfer from to amount]
+
+                      [:db/add from :account/transactions txid]
+
+                      [:db/add to :account/transactions txid]
+
+                      {:db/id txid, :ot/note note :ot/from from :ot/to to :ot/amount amount}])))
+
+
+I also added a many reference attribute to accounts containing all transactions they've been part of. This was to get around the current limitation of listing all transactions for an entity (see previous thread on this).
+
+Now are there any potential issues doing this? It seems to work fine, but I don't know in a large scale system with potentially many transactions per account. 
+
+Anyway it makes it pretty easy to build a transaction history:
+
+(defn history
+
+  ([] (q '[:find ?tx ?f ?t ?a ?n ?when :in $ :where  [?from :account/name ?f] [?to :account/name ?t] [?tx :ot/from ?from] [?tx :ot/to ?to] [?tx :ot/amount ?a] [?tx :ot/note ?n] [?tx :db/txInstant ?when]] (db conn)))
+
+  ([acct] (q '[:find ?tx ?f ?t ?a ?n ?when :in $ ?e :where [?from :account/name ?f] [?to :account/name ?t] [?tx :ot/from ?from] [?tx :ot/to ?to] [?tx :ot/amount ?a] [?tx :ot/note ?n] [?tx :db/txInstant ?when] [?e :account/transactions ?tx]] (db conn) acct) ))
+
+
+The first variation shows the full transaction history across accounts and the second for a specific account.
+
+I welcome comments suggestions improvements etc.
+
+Pelle
+-- 
+http://picomoney.com - Build an economy
+http://stakeventures.com - My blog about startups and agile banking
+
+
+
+
+Pelle	Sign in to reply
+May 8 (11 days ago)
+
+I just added a simple inc function for atomically incrementing an arbitrary value.
+
+There should probably be a built in inc function, but until then… (and yes I know I could make it even shorter.
+
+{ :db/id #db/id [:db.part/user]
+
+    :db/ident :inc
+
+    :db/fn #db/fn { :lang "clojure"
+
+                    :params [db id attr amount]
+
+                    :code "(let [ e (datomic.api/entity db id) 
+
+                                  orig (attr e 0) ]
+
+                            [[:db/add id attr (+ orig amount) ]])"}}
+
+You use it like this:
+
+
+(d/transact conn [[:transfer from to amount]
+
+                      [:db/add from :account/transactions txid]
+
+                      [:db/add to :account/transactions txid]
+
+                      [:inc from :account/transaction-count 1]
+
+                      [:inc to :account/transaction-count 1]
+
+                      {:db/id txid, :ot/note note :ot/from from :ot/to to :ot/amount amount}])
+
+- show quoted text -
+-- 
+http://agree2.com - Reach Agreement!
+
+http://stakeventures.com - My blog about startups and agile banking
+
+
+
+
+Datomic Information	Sign in to reply
+May 9 (10 days ago)
+
+__________________________________
+Type your response ABOVE THIS LINE to reply
+datomic
+Subject: Example of Clojure database functions and transaction annotations
+MAY 09, 2012  |  11:28AM EDT 
+Stuart Halloway replied:
+Pelle,
+
+Couple of things:
+
+When you creating functions from Clojure, you can pass a data structure instead of a string.
+
+Datomic's transaction log is a tree (surprise). We are still looking at ways to make transaction information more accessible. Stay tuned.
+
+Cheers,
+Stu

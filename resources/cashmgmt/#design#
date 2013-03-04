@@ -1,0 +1,24 @@
+le1 -- name
+       * service accs
+       * trade accs
+       * invest accs
+       * external accs (inflow, outflow)
+       * control accs
+
+port -- * accs
+        * port
+
+acc -- * cf
+       le
+       bal
+       min-bal
+       max-bal
+
+
+cf -- note
+      amt
+      dr/cr
+      instr
+      type (interest/capital/dividend)
+
+       

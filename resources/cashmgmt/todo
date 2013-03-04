@@ -1,0 +1,19 @@
+1. create accounts
+2. lookup accounts
+3. deactivate accounts
+4. cashflows between accounts
+5. balance/limit checkers on accounts
+6. cf expectations on accounts
+7. reconcile account with any source (i.e. source may be a bank statement of a feed from another system)
+8. view all cf in an account
+9. view all cf's across accounts
+10. make payments across accounts
+11. bulk payments 
+12. approve payments
+13. receive payments
+14. audits for all cf's
+15. group accounts
+16. alerts for payments and receipts
+17. limit alrets
+18. interest on account balances
+19. interest rates linked to reference rates

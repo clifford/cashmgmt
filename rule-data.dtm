@@ -1,9 +1,0 @@
-[
-        {:rule/name "rule1",
-         :db/id #db/id[:db.part/user -2]}
-
-        {:clause/name "clause1", 
-         :clause/function "xxx", 
-         :clause/rule #db/id[:db.part/user -2],
-         :db/id #db/id[:db.part/user -1]}
-]
