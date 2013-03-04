@@ -1,2 +1,0 @@
-
-(require [day-of-datomic.samples.query :as query])
