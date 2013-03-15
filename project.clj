@@ -7,4 +7,5 @@
                  [incanter/incanter-charts "1.3.0"]
                  [incanter/incanter-pdf "1.3.0"]
                  [day-of-datomic "1.0.0-SNAPSHOT"]]
-  :profiles {:dev {:resource-paths ["resources"]}} )
+  :profiles {:dev {:resource-paths ["resources"]}}
+)

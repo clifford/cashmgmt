@@ -1,14 +1,20 @@
-
-
 (ns cashmgmt.accountold
   (:use [datomic.api :only [q db] :as d])
   (:require [cashmgmt.query :as query]
             [clojure.java.io :as io]
-            [cashmgmt.transact :as t])
+            [cashmgmt.transact :as t]
+            [cashmgmt.construct-acc :as ca] :reload)
   (:import [java.util Date]))
+
 
 (def uri "datomic:mem://accounts")
 
+(defn reset-conn [uri]
+  (d/delete-database uri)
+  (d/create-database uri)
+  (d/connect uri))
+
+(reset-conn uri)
 ;; create database
 (d/create-database uri)
 
@@ -16,19 +22,35 @@
 (def conn (d/connect uri))
 
 ;; parse schema dtm file
-(def schema-tx (read-string (slurp "/Users/dev/src/clj/acc/schema.dtm")))
+(def schema-tx (slurp (io/resource "cashmgmt/acc-schema.dtm")))
 
 schema-tx
 ;; submit schema transaction
 @(d/transact conn schema-tx)
 
 ;; parse seed data dtm file
-(def data-tx (read-string (slurp "/Users/dev/src/clj/acc/accounts.dtm")))
+(def data-tx (slurp (io/resource "cashmgmt/accounts.dtm")))
 
 ;; submit seed data transaction
 @(d/transact conn data-tx)
 
 ;;(t/install conn data-tx :account/name)
+
+;; create a map for jdoe
+(def dbval (d/db conn))
+(def construct-alice-acc (ca/construct-account-map dbval (d/tempid :db.part/user) "alicey" :account.type/liability 0M -1M 10M))
+(def db-with-alice-acc (d/with dbval [construct-alice-acc]))
+
+;; install construct-acc function into the database
+(d/transact conn [{:db/id (d/tempid :db.part/user)
+                   :db/ident :account/construct-acc
+                   :db/fn ca/construct-account-map}])
+
+;; another db value
+(def db-with-fns (d/db conn))
+
+;; invoke functions from the database
+(d/invoke db-with-fns :account/construct-acc db-with-fns (d/tempid :db.part/user) "cliff" 1M -10M 100M)
 
 (defn accounts []
   (d/q '[:find ?c ?n ?b ?count :where [?c :account/name ?n] [?c :account/balance ?b] [?c :account/transaction-count ?count]] (db conn)))

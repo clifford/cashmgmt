@@ -1,5 +1,0 @@
-
-
-[
-{:db/id #db/id[:db.part/user -1000001], :account/name "issuer", :account/balance 0M, :account/max-balance 0M, :account/min-balance -1000M}
-]

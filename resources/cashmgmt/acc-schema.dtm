@@ -6,16 +6,9 @@
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one
     :db/fulltext true
-    :db/unique :db.unique/value
+;    :db/unique :db.unique/value
     :db/doc "An account's name"
     :db.install/_attribute :db.part/db}
-    
-  { :db/id #db/id[:db.part/db]
-    :db/ident :account/type
-    :db/valueType :db.type/ref
-    :db/cardinality :db.cardinality/
-    :db/doc "asset, liability, clearing"
-    :db/install/_attribute :db.part/db}   
 
   { :db/id #db/id[:db.part/db]
     :db/ident :account/balance
@@ -90,12 +83,8 @@
   ;; ot/txtype enum values
   [:db/add #db/id[:db.part/user] :db/ident :ot.txtype/interest]
   [:db/add #db/id[:db.part/user] :db/ident :ot.txtype/capital]
-  [:db/add #db/id[:db.part/user] :db/ident :ot.txtype/dividends]
+  [:db/add #db/id[:db.part/user] :db/ident :ot.txtype/dividend]
 
-  ;; account/type enum values
-  [:db/add #db/id[:db.part/user] :db/ident :account.type/asset]
-  [:db/add #db/id[:db.part/user] :db/ident :account.type/liability]
-  [:db/add #db/id[:db.part/user] :db/ident :account.type/clearing]
 
   { :db/id #db/id [:db.part/user]
     :db/ident :inc
@@ -123,4 +112,3 @@
                     :params [db from to amount]
                     :code "[[:credit from (- amount)]
                            [:credit to amount]]"}}                    
- ]

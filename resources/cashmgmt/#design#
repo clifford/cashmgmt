@@ -21,4 +21,19 @@ cf -- note
       instr
       type (interest/capital/dividend)
 
+
+trade between le1 and le2 for an instrument at a price
+      -> results in flows between 2 legal entities, if the entities are both co-located in the same context then need to record both sets of entries in their accounts.
+If however, one entity falls outside the context then this results in a cf via banking integration, which results in receipts and payments expectations
+
+scenario1:
+trade between 2 co-located entities, should record dr/cr between the accounts
+
+
+chris invests $100 in product1
+chris places an order for 100 AGL shares at bid R10.00 a share
+
+setup entities and they have an attribute which dictates whether they are internally tracked.
+adjust value into entity  
+
        

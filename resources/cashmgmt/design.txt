@@ -1,0 +1,112 @@
+le1 -- name
+       * service accs
+       * trade accs
+       * invest accs
+       * external accs (inflow, outflow)
+       * control accs
+
+port -- * accs
+        * port
+
+acc -- * cf
+       le
+       bal
+       min-bal
+       max-bal
+
+
+cf -- note
+      amt
+      dr/cr
+      instr
+      type (interest/capital/dividend)
+
+
+trade between le1 and le2 for an instrument at a price
+      -> results in flows between 2 legal entities, if the entities are both co-located in the same context then need to record both sets of entries in their accounts.
+If however, one entity falls outside the context then this results in a cf via banking integration, which results in receipts and payments expectations
+
+scenario1:
+trade between 2 co-located entities, should record dr/cr between the accounts
+
+
+chris invests $100 in product1
+chris places an order for 100 AGL shares at bid R10.00 a share
+
+setup entities and they have an attribute which dictates whether they are internally tracked.
+adjust value into entity  
+
+       
+scope:
+boundary is receiving the trade orders, not considering the
+interaction with trader/investor, nor are we considering collection of
+funds from investors. Therefore if we assume we receive a map which
+includes the details of the trade order, 
+order = {:src_entity, :xyz
+ :trg_entity, :abc
+ :amt, 100
+ :currency, ZAR
+ :product, P1
+}
+
+order needs to be added to an order execution queue. 
+Need workers who process this queue to remove it from the queue and to
+create a trade from this order. This trade needs to be executed 
+
+order -> trade -> recognise liability
+      <-trade confirmation
+
+      <-trade settlement
+
+
+
+
+
+
+modules:
+trade entry + processing
+
+bulking
+authorisation (4 eyes)
+payments/collections
+cashbook
+exchange - trade matching (either by bid/offer 
+                          or by reference 
+                          or by logic)
+   should be able to replace the exchange by user case
+valuation
+reporting
+accounting
+
+
+-----------------------------------------------------------------
+Accounting data dsl
+
+Via data be able to specify accounts and the relationships between
+accounts (direction of flow dr acc (a) and cr acc (b)
+- define which external bank accounts are related to each account and
+what it's purpose would be for (i.e. inflow/outflow/clearing)
+- define the primarty and counter trading parties associated with each
+account
+- define which accounts fees should flow into 
+- define which accounts taxes should flow into
+- define where funding (if applicable) should flow from
+
+
+-------------------------------------------------------------------
+Trade and payment scheduling
+
+- schedule trades in the future
+- knowledge of lag and lead times for trades, especially forex trades
+- knowledge of trading windows for funds
+- scheduling payments and collections
+- recurring trades/payments/collections
+
+
+- store the different trading centres around the world
+- where funds are traded, trading windows, currencies, public holidays
+- lead & lag times for trades (settlement times)
+- storing of bank accounts for inflow/outflow
+- interfaces for forex trades
+- expectations for receipts and payments
+- public holiday calendars 
