@@ -3,8 +3,7 @@
   (:require [cashmgmt.query :as query]
             [clojure.java.io :as io]
             [cashmgmt.transact :as t]
-            [cashmgmt.construct-acc :as ca]
-            [clojure.pprint :as pprint] :reload)
+            [cashmgmt.construct-acc :as ca] :reload)
   (:import [java.util Date]))
 
 
@@ -25,12 +24,12 @@
 ;; parse schema dtm file
 (def schema-tx (slurp (io/resource "cashmgmt/acc-schema.dtm")))
 
-(pprint schema-tx)
+schema-tx
 ;; submit schema transaction
 @(d/transact conn schema-tx)
 
 ;; parse seed data dtm file
-(def data-tx (read-string (slurp "/Users/dev/src/clj/acc/accounts.dtm")))
+(def data-tx (slurp (io/resource "cashmgmt/accounts.dtm")))
 
 ;; submit seed data transaction
 @(d/transact conn data-tx)
