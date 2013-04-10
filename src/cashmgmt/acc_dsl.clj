@@ -7,7 +7,8 @@
 ;; xyz -- operational -- service accs (fees, commission, ...)
 ;;                    -- trade accs
 ;;                    -- control accs
-;;     -- client/liability accs 
+;;     -- client/liability accs
+
 
 (def conn (util/scratch-conn))
 (def schema [{:db/id #db/id [:db.part/db],
@@ -87,16 +88,38 @@
               :db/doc "Recipient"
               :db.install/_attribute :db.part/db}
 
+             ;; account tags
              [:db/add #db/id [:db.part/user] :db/ident :account.tag/avail]
              [:db/add #db/id [:db.part/user] :db/ident :account.tag/reserved]
+
+             ;; tx types
+             [:db/add #db/id [:db.part/user] :db/ident :ot.txtype/capital]
+             [:db/add #db/id [:db.part/user] :db/ident :ot.txtype/interest]
+             [:db/add #db/id [:db.part/user] :db/ident :ot.txtype/divedend]
 
              [:db/add #db/id [:db.part/user] :db/ident :account.instrument/p1]
              ])
 
 @(d/transact conn schema)
-(if (>= forecast-bal min-bal) ;;(<= forecast-bal max-bal)
-                                       [[:db/add id :account/balance forecast-bal]]
-                                       (throw (Exception. (str "illegal balance: " forecast-bal))))
+
+(defn create-acc [ref bal]
+  (let [txid (d/tempid :db.part/tx)]
+   (d/transact conn [
+                     { :db/id txid
+                      :account/reference ref
+                      :account/tag :account.tag/avail
+                      :account/instrument :account.instrument/p1
+                      :account/balance bal
+                      :account/min-balance -2M
+                      :account/max-balance 15M}
+                     ])))
+
+(create-acc "a123" 10M)
+(create-acc "a456" 7M)
+
+(def a123 (first (first (q '[:find ?e :where [?e :account/reference "a123"]] (db conn)))))
+(def a456 (first (first (q '[:find ?e :where [?e :account/reference "a456"]] (db conn)))))
+
 (defn balances [acc-ref]
   (d/q '[:find ?b ?mnb ?mxb :in $ ?r :where
         [?e :account/reference ?r]
@@ -105,9 +128,9 @@
         [?e :account/max-balance ?mxb]] (db conn) acc-ref))
 (balances "a123")
 
-(def a123 (first (first (q '[:find ?e :where [?e :account/reference "a123"]] (db conn)))))
 
-(def balance-checker 
+
+(def balance-checker
   #db/fn {:lang :clojure
           :params [db id amount]
           :code (let [e (d/entity db id)
@@ -136,7 +159,9 @@
                    :db/ident :account/balance-checker
                    :db/fn balance-checker}])
 
-(def adj-bal-by 
+;; validate that the amt will keep balance within bounds. adjust the
+;; balance for the account
+(def credit
   #db/fn {:lang :clojure
                              :params [db id amount]
                              :code (let [e (d/entity db id)
@@ -146,30 +171,93 @@
                                        [[:db/add id :account/balance forecast-bal]])
                                      )})
 
-(def tx-instants (reverse (sort (d/q '[:find ?when :where [_ :db/txInstant ?when]]
-                                     (d/db conn)))))
-tx-instants
-(def pre-adj-date (ffirst tx-instants))
-pre-adj-date
-
-(-> (adj-bal-by (db conn) a123 21M) util/should-throw)
-(adj-bal-by (db conn) a123 3M)
+(-> (credit (db conn) a123 21M) util/should-throw)
+(credit (db conn) a123 3M)
 
 ;; db val before adjusting balance
 (def dbval (db conn))
 
-;; install the adj-bal-by fn into the db
+;; install the credit fn into the db
 (d/transact conn [{:db/id (d/tempid :db.part/user)
-                   :db/ident :account/adj-bal-by
-                   :db/fn adj-bal-by}])
+                   :db/ident :account/credit
+                   :db/fn credit}])
 
-(d/transact conn [[:account/adj-bal-by a123 -1M]])
+(d/transact conn [[:account/credit a123 -1M]])
 (balances "a123")
+
+;; transfer implemented as an ordinary function
+(defn transfer [from to amount note]
+  (let [txid (d/tempid :db.part/tx)]
+    (d/transact conn [[:account/credit from (- amount)]
+                      [:account/credit to amount]
+                      [:db/add from :account/transactions txid]
+                      [:db/add to :account/transactions txid]
+                      {:db/id txid :ot/note note :ot/dr from :ot/cr to
+                       :ot/txtype :ot.txtype/capital :ot/amount amount}])))
+
+(transfer a456 a123 1M "pay debt")
+(balances "a123")
+(balances "a456")
+
+;; find all ot's for an account
+(defn txns [acc-ref]
+  (map (fn [[txid txinstant]]
+         (let
+             [tx (d/entity (db conn)  txid)
+              {amt :ot/amount note :ot/note when :ot/tx dr :ot/dr cr :ot/cr} tx]
+           [dr cr amt note txinstant])
+         ) (q '[:find ?txns ?when
+        :in $ ?ar
+        :where
+                [?a :account/reference ?ar]
+                [?a :account/transactions ?txns ?tx]
+                [?tx :db/txInstant ?when]]
+      (db conn)
+      acc-ref)))
+
+(txns "a123")
+
+(def v (q '[:find ?txns ?when
+      :in $ ?ar
+      :where
+      [?a :account/reference ?ar]
+      [?a :account/transactions ?txns ?tx]
+      [?tx :db/txInstant ?when]]
+
+    (db conn)
+    "a123"))
+v
+
+(map (fn [[txid when]] (println txid)) v)
+
+;; install dbtransfer fn into db
+(d/transact conn [{:db/id (d/tempid :db.part/user)
+                   :db/ident :account/dbtransfer
+                   :db/fn dbtransfer}])
+(d/transact conn [[:account/dbtransfer dbval a123 a456 2M]])
+
+;; book an operational transaction, which in turn adjusts the balance
+(def book-ot
+  "book an operational transaction, which should adjust both dr and cr side balances."
+  #db/fn {:lang :clojure
+          :params [db id amt dr-acc cr-acc tx-type note]
+          :code (let [otid (d/tempid :db.part/tx)]
+                  [[:credit ]
+                   [:db/add dr :account/transactions db otid]
+                   [:db/add cr :account/transactions db otid]
+                   ])
+          })
+
+
+(def tx-instants (reverse (sort (d/q '[:find ?when :where [_ :db/txInstant ?when]]
+                                     (d/db conn)))))
+tx-instants
+
 
 
 (pprint (sort #(compare (last %1) (last %2))
          (seq (q '[:find ?e ?b ?t ?tx
-                    :in $ 
+                    :in $
                     :where
                     [?tx :db/txInstant ?t]
                     [?e :account/balance ?b ?tx]]
@@ -198,23 +286,3 @@ pre-adj-date
       distinct))
 
 (pprint (map #(seq (d/entity (db conn) %)) changed))
-
-
-
-
-
-
-(let [txid (d/tempid :db.part/tx)]
-  (d/transact conn [
-                    { :db/id txid
-                      :account/reference "a123"
-                      :account/tag :account.tag/avail
-                      :account/instrument :account.instrument/p1
-                      :account/balance 10M
-                      :account/min-balance -2M
-                      :account/max-balance 15M}
-                    ]))
-
-
-
-;; emacs search for currently selected word - C-s C-w C-s

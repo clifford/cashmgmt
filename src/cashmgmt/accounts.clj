@@ -114,8 +114,8 @@ schema-tx
 
 (println "History")
 (prn (history))
-;; #<HashSet [[13194139534319 "issuer" "alice" 77M "Issuance to Alice" #inst "2012-05-08T14:35:25.252-00:00"], 
-;;            [13194139534320 "issuer" "bob" 23M "Issuance to Bob" #inst "2012-05-08T14:35:25.256-00:00"], 
+;; #<HashSet [[13194139534319 "issuer" "alice" 77M "Issuance to Alice" #inst "2012-05-08T14:35:25.252-00:00"],
+;;            [13194139534320 "issuer" "bob" 23M "Issuance to Bob" #inst "2012-05-08T14:35:25.256-00:00"],
 ;;            [13194139534321 "alice" "bob" 7M "Tomatoes" #inst "2012-05-08T14:35:25.262-00:00"]]>
 
 (println "Accounts")
@@ -123,7 +123,7 @@ schema-tx
 ;; #<HashSet [[17592186045421 "issuer" -100M 2], [17592186045423 "alice" 70M 2], [17592186045422 "bob" 30M 2]]>
 
 (defn alice-txs [db entity attr] (q '[:find ?n ?amt ?tn
-                        :in $ ?e ?attr 
+                        :in $ ?e ?attr
                         :where
                         [?e :account/transactions ?tx]
                         [?tx ?attr ?e]
@@ -204,4 +204,3 @@ schema-tx
              (next my-vals))
       my-map)))
 (my-zipmap [:a :b :c] [1 2 3])
-

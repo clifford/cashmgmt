@@ -23,6 +23,3 @@
 
 ;; get a database *value* for testing construct-user-map
 ;; all tests can be of pure functions!
-(def dbval (d/db conn))
-
-
