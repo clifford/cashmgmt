@@ -1,5 +1,0 @@
-[
-{:db/id #db/id[:db.part/user -1000001], :account/name "issuer", :account/balance 0M, :account/max-balance 0M, :account/min-balance -1000M}
-{:db/id #db/id[:db.part/user -1000002], :account/name "bob", :account/balance 0M, :account/max-balance 100M, :account/min-balance 0M}
-{:db/id #db/id[:db.part/user -1000003], :account/name "alice", :account/balance 0M, :account/max-balance 100M, :account/min-balance 0M}
-]

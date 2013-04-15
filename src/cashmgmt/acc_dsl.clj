@@ -1,7 +1,9 @@
 (ns cashmgmt.acc-dsl
   (:use [datomic.api :only [q db] :as d]
         [clojure.pprint])
-  (:require [datomic.samples.repl :as util])
+  (:require [datomic.samples.repl :as util]
+            [clojure.java.io :as io]
+            [datomic.samples.io :as dio])
   (:import [java.lang Exception]))
 
 ;; xyz -- operational -- service accs (fees, commission, ...)
@@ -11,96 +13,99 @@
 
 
 (def conn (util/scratch-conn))
-(def schema [{:db/id #db/id [:db.part/db],
-              :db/ident :account/reference,
-              :db/valueType :db.type/string,
-              :db/cardinality :db.cardinality/one,
-              :db/index true,
-              :db/unique :db.unique/identity
-              :db/fulltext true,
-              :db.install/_attribute :db.part/db}
-             {:db/id #db/id [:db.part/db],
-              :db/ident :account/tag,
-              :db/valueType :db.type/ref,
-              :db/cardinality :db.cardinality/one,
-              :db/index true,
-              :db.install/_attribute :db.part/db}
-             {:db/id #db/id [:db.part/db],
-              :db/ident :account/instrument,
-              :db/valueType :db.type/ref,
-              :db/cardinality :db.cardinality/one,
-              :db/index true,
-              :db.install/_attribute :db.part/db}
-             {:db/id #db/id [:db.part/db],
-              :db/ident :account/balance,
-              :db/valueType :db.type/bigdec,
-              :db/cardinality :db.cardinality/one,
-              :db.install/_attribute :db.part/db}
-             {:db/id #db/id [:db.part/db],
-              :db/ident :account/min-balance,
-              :db/valueType :db.type/bigdec,
-              :db/cardinality :db.cardinality/one,
-              :db.install/_attribute :db.part/db}
-             {:db/id #db/id [:db.part/db],
-              :db/ident :account/max-balance,
-              :db/valueType :db.type/bigdec,
-              :db/cardinality :db.cardinality/one,
-              :db.install/_attribute :db.part/db}
-             {:db/id #db/id [:db.part/db],
-              :db/ident :account/transactions,
-              :db/valueType :db.type/ref,
-              :db/cardinality :db.cardinality/many,
-              :db.install/_attribute :db.part/db}
+;; (def schema [{:db/id #db/id [:db.part/db],
+;;               :db/ident :account/reference,
+;;               :db/valueType :db.type/string,
+;;               :db/cardinality :db.cardinality/one,
+;;               :db/index true,
+;;               :db/unique :db.unique/identity
+;;               :db/fulltext true,
+;;               :db.install/_attribute :db.part/db}
+;;              {:db/id #db/id [:db.part/db],
+;;               :db/ident :account/tag,
+;;               :db/valueType :db.type/ref,
+;;               :db/cardinality :db.cardinality/one,
+;;               :db/index true,
+;;               :db.install/_attribute :db.part/db}
+;;              {:db/id #db/id [:db.part/db],
+;;               :db/ident :account/instrument,
+;;               :db/valueType :db.type/ref,
+;;               :db/cardinality :db.cardinality/one,
+;;               :db/index true,
+;;               :db.install/_attribute :db.part/db}
+;;              {:db/id #db/id [:db.part/db],
+;;               :db/ident :account/balance,
+;;               :db/valueType :db.type/bigdec,
+;;               :db/cardinality :db.cardinality/one,
+;;               :db.install/_attribute :db.part/db}
+;;              {:db/id #db/id [:db.part/db],
+;;               :db/ident :account/min-balance,
+;;               :db/valueType :db.type/bigdec,
+;;               :db/cardinality :db.cardinality/one,
+;;               :db.install/_attribute :db.part/db}
+;;              {:db/id #db/id [:db.part/db],
+;;               :db/ident :account/max-balance,
+;;               :db/valueType :db.type/bigdec,
+;;               :db/cardinality :db.cardinality/one,
+;;               :db.install/_attribute :db.part/db}
+;;              {:db/id #db/id [:db.part/db],
+;;               :db/ident :account/transactions,
+;;               :db/valueType :db.type/ref,
+;;               :db/cardinality :db.cardinality/many,
+;;               :db.install/_attribute :db.part/db}
 
-             ;; operational transactions
-             { :db/id #db/id[:db.part/db]
-              :db/ident :ot/note
-              :db/valueType :db.type/string
-              :db/cardinality :db.cardinality/one
-              :db/doc "An note about what was transfered"
-              :db.install/_attribute :db.part/db}
+;;              ;; operational transactions
+;;              { :db/id #db/id[:db.part/db]
+;;               :db/ident :ot/note
+;;               :db/valueType :db.type/string
+;;               :db/cardinality :db.cardinality/one
+;;               :db/doc "An note about what was transfered"
+;;               :db.install/_attribute :db.part/db}
 
-             { :db/id #db/id[:db.part/db]
-              :db/ident :ot/amount
-              :db/valueType :db.type/bigdec
-              :db/cardinality :db.cardinality/one
-              :db/doc "Amount transacted"
-              :db.install/_attribute :db.part/db}
+;;              { :db/id #db/id[:db.part/db]
+;;               :db/ident :ot/amount
+;;               :db/valueType :db.type/bigdec
+;;               :db/cardinality :db.cardinality/one
+;;               :db/doc "Amount transacted"
+;;               :db.install/_attribute :db.part/db}
 
-             { :db/id #db/id[:db.part/db]
-              :db/ident :ot/txtype
-              :db/valueType :db.type/ref
-              :db/cardinality :db.cardinality/one
-              :db/doc "classification of transaction"
-              :db.install/_attribute :db.part/db}
+;;              { :db/id #db/id[:db.part/db]
+;;               :db/ident :ot/txtype
+;;               :db/valueType :db.type/ref
+;;               :db/cardinality :db.cardinality/one
+;;               :db/doc "classification of transaction"
+;;               :db.install/_attribute :db.part/db}
 
-             { :db/id #db/id[:db.part/db]
-              :db/ident :ot/dr
-              :db/valueType :db.type/ref
-              :db/cardinality :db.cardinality/one
-              :db/doc "Transferee"
-              :db.install/_attribute :db.part/db}
+;;              { :db/id #db/id[:db.part/db]
+;;               :db/ident :ot/dr
+;;               :db/valueType :db.type/ref
+;;               :db/cardinality :db.cardinality/one
+;;               :db/doc "Transferee"
+;;               :db.install/_attribute :db.part/db}
 
-             { :db/id #db/id[:db.part/db]
-              :db/ident :ot/cr
-              :db/valueType :db.type/ref
-              :db/cardinality :db.cardinality/one
-              :db/doc "Recipient"
-              :db.install/_attribute :db.part/db}
+;;              { :db/id #db/id[:db.part/db]
+;;               :db/ident :ot/cr
+;;               :db/valueType :db.type/ref
+;;               :db/cardinality :db.cardinality/one
+;;               :db/doc "Recipient"
+;;               :db.install/_attribute :db.part/db}
 
-             ;; account tags
-             [:db/add #db/id [:db.part/user] :db/ident :account.tag/avail]
-             [:db/add #db/id [:db.part/user] :db/ident :account.tag/reserved]
+;;              ;; account tags
+;;              [:db/add #db/id [:db.part/user] :db/ident :account.tag/avail]
+;;              [:db/add #db/id [:db.part/user] :db/ident :account.tag/reserved]
 
-             ;; tx types
-             [:db/add #db/id [:db.part/user] :db/ident :ot.txtype/capital]
-             [:db/add #db/id [:db.part/user] :db/ident :ot.txtype/interest]
-             [:db/add #db/id [:db.part/user] :db/ident :ot.txtype/divedend]
+;;              ;; tx types
+;;              [:db/add #db/id [:db.part/user] :db/ident :ot.txtype/capital]
+;;              [:db/add #db/id [:db.part/user] :db/ident :ot.txtype/interest]
+;;              [:db/add #db/id [:db.part/user] :db/ident :ot.txtype/divedend]
 
-             [:db/add #db/id [:db.part/user] :db/ident :account.instrument/p1]
-             ])
-
-@(d/transact conn schema)
+;;              [:db/add #db/id [:db.part/user] :db/ident :account.instrument/p1]
+;;              ])
+(def schema (read-string (slurp (io/resource "cashmgmt/cashmgmt-schema1.edn"))))
+;; (def schema (read-string (slurp  "resources/cashmgmt/cashmgmt-schema1.edn")))
+schema
+(println "********************" (dio/read-all schema))
+(d/transact conn schema)
 
 (defn create-acc [ref bal]
   (let [txid (d/tempid :db.part/tx)]
