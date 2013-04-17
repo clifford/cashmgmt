@@ -1,33 +1,53 @@
 (ns cashmgmt.portfolio
   (:require [datomic.api :only [q db] :as d]
-            [datomic.samples.repl :as u]))
+            [datomic.samples.repl :as u]
+            [clojure.java.io :as io]
+            [cashmgmt.acc-dsl :as a]
+            [datomic.samples.query :as qry]))
 
 (def conn (u/scratch-conn))
 
-(def schema [{:db/id #db/id [:db.part/db]
-              :db/ident :portfolio/reference
-              :db/valueType :db.type/string
-              :db/cardinality :db.cardinality/one
-              :db/index true
-              :db/unique :db.unique/identity
-              :db/fulltext true
-              :db.install/_attribute :db.part/db}
-             {:db/id #db/id [:db.part/db]
-              :db/ident :portfolio/accounts
-              :db/valueType :db.type/ref
-              :db/cardinality :db.cardinality/many
-              :db.install/_attribute :db.part/db}
-             {:db/id #db/id [:db.part/db]
-              :db/ident :portfolio/portfolios
-              :db/valueType :db.type/ref
-              :db/cardinality :db.cardinality/many
-              :db.install/_attribute :db.part/db}])
-(defn create [p]
+(def schema (read-string (slurp (io/resource "cashmgmt/cashmgmt-schema.edn"))))
+(d/transact conn schema)
+
+(defn create [ref accs]
   "create a portfolio"
-  )
+  (let [txid (d/tempid :db.part/tx)]
+    (d/transact conn [
+                      {:db/id txid
+                       :portfolio/reference ref
+                       :portfolio/accounts accs}])))
 
+(create "p1" [])
+@(a/create-acc "a123" 10M)
+(def a123 (first (first (d/q '[:find ?e :where [?e :account/reference "a123"]] (d/db conn)))))
+(:db/id a123)
+@(create "p2" [a123])
 
+;; verify that portfolio contains the account
+(def e (d/entity (d/db conn) (ffirst (d/q '[:find ?a :where [?p :portfolio/reference "p2"]
+                                      [?p :portfolio/accounts ?a]]
+                                    (d/db conn)))))
+(:account/tag e)
+(:account/balance e)
+(defn portfolio-accs [portfolio]
+  "describe accounts on this portfolio"
+  (->> (qry/qes '[:find ?a
+                  :in $ ?portfolio
+                  :where [?p :portfolio/reference ?portfolio]
+                 [?p :portfolio/accounts ?a]]
+               (d/db conn) portfolio)
+      ffirst
+      (map (fn [[k v]]
+             (format "%s -> %s" k v)))
+      ))
+(portfolio-accs "p2")
 
+(def attr (d/entity (d/db conn) (ffirst (d/q '[:find ?attr :where [?p :portfolio/reference "p2"]
+                                            [?p :portfolio/accounts ?a]
+                                            [?a ?attr _]]
+                                    (d/db conn)))))
+attr
 
 (comment design
   p ->* p ->* acc
