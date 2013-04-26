@@ -2,8 +2,10 @@
   (:require [datomic.api :only [q db] :as d]
             [datomic.samples.repl :as u]
             [clojure.java.io :as io]
-            [cashmgmt.acc-dsl :as a]
-            [datomic.samples.query :as qry]))
+            [cashmgmt.acc-dsl :as a :reload true]
+            [cashmgmt.introspect :as i]
+            [datomic.samples.query :as qry]
+            [cashmgmt.util.unique :as uq]))
 
 (def conn (u/scratch-conn))
 
@@ -16,38 +18,68 @@
     (d/transact conn [
                       {:db/id txid
                        :portfolio/reference ref
-                       :portfolio/accounts accs}])))
+                       :portfolio/position accs}])))
 
 (create "p1" [])
-@(a/create-acc "a123" 10M)
+@(a/create-acc conn "a123" 10M)
+(a/create-acc conn "a456" 7M)
 (def a123 (first (first (d/q '[:find ?e :where [?e :account/reference "a123"]] (d/db conn)))))
+(def a456 (first (first (d/q '[:find ?e :where [?e :account/reference "a456"]] (d/db conn)))))
 (:db/id a123)
-@(create "p2" [a123])
+@(create "p2" [a123 a456])
 
 ;; verify that portfolio contains the account
-(def e (d/entity (d/db conn) (ffirst (d/q '[:find ?a :where [?p :portfolio/reference "p2"]
-                                      [?p :portfolio/accounts ?a]]
-                                    (d/db conn)))))
-(:account/tag e)
-(:account/balance e)
-(defn portfolio-accs [portfolio]
-  "describe accounts on this portfolio"
-  (->> (qry/qes '[:find ?a
-                  :in $ ?portfolio
-                  :where [?p :portfolio/reference ?portfolio]
-                 [?p :portfolio/accounts ?a]]
-               (d/db conn) portfolio)
-      ffirst
-      (map (fn [[k v]]
-             (format "%s -> %s" k v)))
-      ))
-(portfolio-accs "p2")
+(i/portfolio-accs conn "p2" (partial map (fn [[k v]] (format "%s -> %s" k v))))
+(def accs (i/portfolio-accs conn "p2" (let [r {}] (partial map (fn [[k v]] (assoc r k v))))))
+(first accs)
+(second accs)
 
-(def attr (d/entity (d/db conn) (ffirst (d/q '[:find ?attr :where [?p :portfolio/reference "p2"]
-                                            [?p :portfolio/accounts ?a]
-                                            [?a ?attr _]]
-                                    (d/db conn)))))
-attr
+(a/transfer a123 a456 33M "cig annuity")
+(a/transfer a123 a456 17M "repay debt")
+
+;; instrument
+(defn create-instrument [conn instr types]
+  (let [txid (d/tempid :db.part/tx)]
+    (d/transact conn [{:db/id txid
+                       :instrument/reference instr}
+                      [:db/add txid :instrument/type types]
+                      ;; (map #(:db/add txid :instrument/type %) types)
+                      ])))
+@(create-instrument conn "b133" :fixed-income)
+(d/q '[:find ?t
+       :where
+       [?e :instrument/type ?t]
+       [?e :instrument/reference "b133"]]
+     (d/db conn))
+
+(ffirst (d/q '[:find ?e :where [?e :instrument/reference "b133"]] (d/db conn)))
+
+(uq/existing-values (d/db conn) :instrument/type [:bond :fixed-income])
+(let [iid (first (d/q '[:find ?e :where [?e :instrument/reference "b133"]] (d/db conn)))]
+ (uq/assert-new-values conn :db.part/tx :instrument/type {iid :boo}))
+;; quote
+(defn create-quote [])
+
+
+(defn list-existing-values
+  "Returns subset of values that already exist as unique
+   attribute attr in db"
+  [db attr]
+  (->> (d/q '[:find ?val
+              :in $ ?attr ;;[?val ...]
+              :where [_ ?attr ?val]]
+            db attr)
+       (map first)
+       ))
+
+(list-existing-values (d/db conn) :instrument/type)
+(let [txid (d/tempid :db.part/tx)
+      emap [{:db/id txid
+              :instrument/type "x987"}]]
+    (uq/assert-new-values conn :db.part/tx :instrument/type emap))
+
+;; position
+(defn create-pos [conn acc ])
 
 (comment design
   p ->* p ->* acc

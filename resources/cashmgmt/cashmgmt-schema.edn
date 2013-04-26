@@ -1,4 +1,61 @@
 [
+ ;; position
+ {:db/id #db/id [:db.part/db]
+  :db/ident :position/value-date
+  :db/valueType :db.type/instant
+  :db/cardinality :db.cardinality/one
+  :db.install/_attribute :db.part/db}
+  {:db/id #db/id [:db.part/db]
+  :db/ident :position/account
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/index true
+  :db.install/_attribute :db.part/db}
+ {:db/id #db/id [:db.part/db]
+  :db/ident :position/value
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one}
+ {:db/id #db/id [:db.part/db]
+  :db/ident :position/quote
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/index true
+  :db.install/_attribute :db.part/db}
+
+ ;; instrument
+ {:db/id #db/id [:db.part/db]
+  :db/ident :instrument/reference
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/index true
+  :db/fulltext true
+  :db.install/_attribute :db.part/db}
+ {:db/id #db/id [:db.part/db]
+  :db/ident :instrument/type
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/many
+  :db.install/_attribute :db.part/db}
+
+ ;; quote
+ {:db/id #db/id [:db.part/db]
+  :db/ident :quote/instrument
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one
+  :db/index true
+  :db.install/_attribute :db.part/db}
+ {:db/id #db/id [:db.part/db]
+  :db/ident :quote/bid
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one}
+ {:db/id #db/id [:db.part/db]
+  :db/ident :quote/offer
+  :db/valueType :db.type/bigdec
+  :db/cardinality :db.cardinality/one}
+{:db/id #db/id [:db.part/db]
+  :db/ident :quote/at
+  :db/valueType :db.type/instant
+  :db/cardinality :db.cardinality/one}
+
 ;; portfolio
  {:db/id #db/id [:db.part/db]
   :db/ident :portfolio/reference
@@ -9,7 +66,7 @@
   :db/fulltext true
   :db.install/_attribute :db.part/db}
  {:db/id #db/id [:db.part/db]
-  :db/ident :portfolio/accounts
+  :db/ident :portfolio/position
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/many
   :db.install/_attribute :db.part/db}
