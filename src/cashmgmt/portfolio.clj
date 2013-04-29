@@ -2,10 +2,10 @@
   (:require [datomic.api :only [q db] :as d]
             [datomic.samples.repl :as u]
             [clojure.java.io :as io]
-            [cashmgmt.acc-dsl :as a :reload true]
+            [cashmgmt.acc-dsl :as a]
             [cashmgmt.introspect :as i]
             [datomic.samples.query :as qry]
-            [cashmgmt.util.unique :as uq]))
+            [cashmgmt.util.unique :as uq :reload true]))
 
 (def conn (u/scratch-conn))
 
@@ -54,12 +54,22 @@
 
 (ffirst (d/q '[:find ?e :where [?e :instrument/reference "b133"]] (d/db conn)))
 
-(uq/existing-values (d/db conn) :instrument/type [:bond :fixed-income])
-(let [iid (first (d/q '[:find ?e :where [?e :instrument/reference "b133"]] (d/db conn)))]
- (uq/assert-new-values conn :db.part/tx :instrument/type {iid :boo}))
+
+
 ;; quote
 (defn create-quote [])
 
+(defn list-existing-values-e
+  "list existing values for entity"
+  [r db attr]
+  (->> (d/q '[:find ?val
+              :in $ ?attr ?r
+              :where
+              [?e ?attr ?val]
+              [?e :instrument/reference ?r]]
+            db attr r)
+       (map first)
+       ))
 
 (defn list-existing-values
   "Returns subset of values that already exist as unique
@@ -73,11 +83,27 @@
        ))
 
 (list-existing-values (d/db conn) :instrument/type)
+(list-existing-values-e "b133" (d/db conn) :instrument/type)
+(uq/existing-values (d/db conn) :instrument/type [:bond :fixed-income :x987])
 (let [txid (d/tempid :db.part/tx)
       emap [{:db/id txid
-              :instrument/type "x987"}]]
+              :instrument/type "x988"}]]
     (uq/assert-new-values conn :db.part/tx :instrument/type emap))
 
+(let [txid (ffirst (d/q '[:find ?e :where [?e :instrument/reference "b133"]] (d/db conn)))
+      emap [{:db/id txid
+              :instrument/type "x999"}]]
+    (uq/assert-new-values conn :db.part/tx :instrument/type emap))
+
+(let [txid (ffirst (d/q '[:find ?e :where [?e :instrument/reference "b133"]] (d/db conn)))]
+  (d/transact conn [[:db/add txid :instrument/type "cig1"]]))
+
+(let [txid (ffirst (d/q '[:find ?e :where [?e :instrument/reference "b133"]] (d/db conn)))
+      emap1 {:db/id (d/tempid :db.part/tx)
+             :instrument/type "a1"}
+      emap2 {:db/id (d/tempid :db.part/tx)
+             :instrument/type "b1"}]
+  (uq/assert-new-values-on conn txid :instrument/type [emap1 emap2] ))
 ;; position
 (defn create-pos [conn acc ])
 
