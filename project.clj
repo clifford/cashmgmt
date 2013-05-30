@@ -7,6 +7,8 @@
                  [incanter/incanter-pdf "1.3.0"]
                  [day-of-datomic "1.0.0-SNAPSHOT"]
                  [org.clojure/math.combinatorics "0.0.4"]
-                 [org.clojure/test.generative "0.1.4"]]
+                 [org.clojure/test.generative "0.1.4"]
+                 [com.datomic/simulant "0.1.4"]
+                 [clj-time "0.5.1"]]
   :profiles {:dev {:resource-paths ["resources"]}}
 )

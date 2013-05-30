@@ -28,12 +28,14 @@
   :db/valueType :db.type/string
   :db/cardinality :db.cardinality/one
   :db/index true
+  :db/unique :db.unique/identity
   :db/fulltext true
   :db.install/_attribute :db.part/db}
  {:db/id #db/id [:db.part/db]
   :db/ident :instrument/type
   :db/valueType :db.type/keyword
   :db/cardinality :db.cardinality/many
+  :db/unique :db.unique/identity
   :db.install/_attribute :db.part/db}
 
  ;; quote
@@ -46,15 +48,25 @@
  {:db/id #db/id [:db.part/db]
   :db/ident :quote/bid
   :db/valueType :db.type/bigdec
-  :db/cardinality :db.cardinality/one}
+  :db/cardinality :db.cardinality/one
+  :db.install/_attribute :db.part/db}
  {:db/id #db/id [:db.part/db]
   :db/ident :quote/offer
   :db/valueType :db.type/bigdec
-  :db/cardinality :db.cardinality/one}
+  :db/cardinality :db.cardinality/one
+  :db.install/_attribute :db.part/db}
 {:db/id #db/id [:db.part/db]
   :db/ident :quote/at
   :db/valueType :db.type/instant
-  :db/cardinality :db.cardinality/one}
+ :db/cardinality :db.cardinality/one
+ :db.install/_attribute :db.part/db}
+{:db/id #db/id [:db.part/db]
+ :db/ident :quote/type
+ :db/valueType :db.type/ref
+ :db/cardinality :db.cardinality/one
+ :db/index true
+
+ :db.install/_attribute :db.part/db}
 
 ;; portfolio
  {:db/id #db/id [:db.part/db]
@@ -165,4 +177,9 @@
  [:db/add #db/id [:db.part/user] :db/ident :ot.txtype/interest]
  [:db/add #db/id [:db.part/user] :db/ident :ot.txtype/divedend]
 
- [:db/add #db/id [:db.part/user] :db/ident :account.instrument/p1]]
+;; instrument
+[:db/add #db/id [:db.part/user] :db/ident :account.instrument/p1]
+
+;; quote type
+[:db/add #db/id [:db.part/user] :db/ident :quote.type/closing]
+]

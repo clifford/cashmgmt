@@ -5,14 +5,23 @@
             [cashmgmt.acc-dsl :as a]
             [cashmgmt.introspect :as i]
             [datomic.samples.query :as qry]
-            [cashmgmt.util.unique :as uq :reload true]))
+            [cashmgmt.util.unique :as uq]
+            [cashmgmt.util.emap :as e]
+            [cashmgmt.util.date :as date]
+            [clj-time.core :as time]
+            [clj-time.coerce :as coerce])
+  (:use [simulant.util :as sim])
+  (:import [java.util.Date]))
 
+(time/date-time 20130508)
+(date/date= 20130508 20130508)
 (def conn (u/scratch-conn))
+(a/install-db-funcs conn)
 
 (def schema (read-string (slurp (io/resource "cashmgmt/cashmgmt-schema.edn"))))
 (d/transact conn schema)
 
-(defn create [ref accs]
+(defn create [conn ref accs]
   "create a portfolio"
   (let [txid (d/tempid :db.part/tx)]
     (d/transact conn [
@@ -20,13 +29,17 @@
                        :portfolio/reference ref
                        :portfolio/position accs}])))
 
-(create "p1" [])
-@(a/create-acc conn "a123" 10M)
-(a/create-acc conn "a456" 7M)
-(def a123 (first (first (d/q '[:find ?e :where [?e :account/reference "a123"]] (d/db conn)))))
-(def a456 (first (first (d/q '[:find ?e :where [?e :account/reference "a456"]] (d/db conn)))))
-(:db/id a123)
-@(create "p2" [a123 a456])
+(create-portfolio conn "p1" [])
+(a/create-instrument conn "b133" :bond)
+(def b133 (a/get-instrument (d/db conn) "b133"))
+(a/create-acc conn "a123" 10M b133)
+(a/create-acc conn "a456" 7M b133)
+
+(def a123 (a/get-acc conn "a123"))
+(def a456 (a/get-acc conn "a456"))
+(:account/tag a123)
+(:account/tag a456)
+(create-portfolio conn "p2" [a123 a456])
 
 ;; verify that portfolio contains the account
 (i/portfolio-accs conn "p2" (partial map (fn [[k v]] (format "%s -> %s" k v))))
@@ -34,18 +47,20 @@
 (first accs)
 (second accs)
 
-(a/transfer a123 a456 33M "cig annuity")
-(a/transfer a123 a456 17M "repay debt")
+(a/transfer conn a123 a456 3M "cig annuity")
+(a/transfer conn a123 a456 1M "repay debt")
 
 ;; instrument
 (defn create-instrument [conn instr types]
   (let [txid (d/tempid :db.part/tx)]
-    (d/transact conn [{:db/id txid
-                       :instrument/reference instr}
-                      [:db/add txid :instrument/type types]
-                      ;; (map #(:db/add txid :instrument/type %) types)
-                      ])))
-@(create-instrument conn "b133" :fixed-income)
+    (-> @(d/transact conn [{:db/id txid
+                        :instrument/reference instr}
+                       [:db/add txid :instrument/type types]
+                       ;; (map #(:db/add txid :instrument/type %) types)
+                       ])
+        (tx-ent txid))))
+(def b133 (create-instrument conn "b133" :fixed-income))
+(:instrument/type b133)
 (d/q '[:find ?t
        :where
        [?e :instrument/type ?t]
@@ -57,56 +72,118 @@
 
 
 ;; quote
-(defn create-quote [])
+(defn add-quote
+  "add a new quote for an instrument on a date (time?)"
+  [conn instr at bid offer]
+  (let [txid (d/tempid :db.part/tx)]
+    (-> @(d/transact conn [{:db/id txid
+                        :quote/instrument (qry/e instr)
+                        :quote/bid bid
+                        :quote/offer offer
+                        :quote/at at
+                            :quote/type :quote.type/closing}])
+        (tx-ent txid))))
 
-(defn list-existing-values-e
-  "list existing values for entity"
-  [r db attr]
-  (->> (d/q '[:find ?val
-              :in $ ?attr ?r
-              :where
-              [?e ?attr ?val]
-              [?e :instrument/reference ?r]]
-            db attr r)
-       (map first)
-       ))
+(def b133map (e/emap conn '[:find ?e :where [?e :instrument/reference "b133"]]))
+b133map
+(:instrument/type b133map)
 
-(defn list-existing-values
-  "Returns subset of values that already exist as unique
-   attribute attr in db"
-  [db attr]
-  (->> (d/q '[:find ?val
-              :in $ ?attr ;;[?val ...]
-              :where [_ ?attr ?val]]
-            db attr)
-       (map first)
-       ))
+(defn get-instr
+  "find the instrument with this reference"
+  [conn ref]
+  (->> (d/q '[:find ?i
+          :in $ ?r
+          :where [?i :instrument/reference ?r]]
+            (d/db conn) ref)
+       ffirst
+       (d/entity (d/db conn))))
 
-(list-existing-values (d/db conn) :instrument/type)
-(list-existing-values-e "b133" (d/db conn) :instrument/type)
-(uq/existing-values (d/db conn) :instrument/type [:bond :fixed-income :x987])
-(let [txid (d/tempid :db.part/tx)
-      emap [{:db/id txid
-              :instrument/type "x988"}]]
-    (uq/assert-new-values conn :db.part/tx :instrument/type emap))
+(get-instr conn "b133")
+(:instrument/type (get-instr conn "b133"))
+(:db/id (get-instr conn "b133"))
 
-(let [txid (ffirst (d/q '[:find ?e :where [?e :instrument/reference "b133"]] (d/db conn)))
-      emap [{:db/id txid
-              :instrument/type "x999"}]]
-    (uq/assert-new-values conn :db.part/tx :instrument/type emap))
+(defn day-interval
+  "return an interval of 1 day around the passed in date"
+  [date]
+  (clj-time.core/interval (clj-time.coerce/from-date date) (clj-time.core/plus date (clj-time.core/days 1))))
 
-(let [txid (ffirst (d/q '[:find ?e :where [?e :instrument/reference "b133"]] (d/db conn)))]
-  (d/transact conn [[:db/add txid :instrument/type "cig1"]]))
+(time/within? (day-interval (time/date-time 2013 05 20)) (time/date-time 2013 05 20))
 
+(defn format-date [d]
+  (-> (java.text.SimpleDateFormat. "yyyyMMdd") (.format d)))
+(format-date (java.util.Date.))
+
+(add-quote conn b133map (java.util.Date.) 12M 13M )
+(defn quote-for
+  "find a CLOSING quote for an instrument on a date"
+  [dbval instr date]
+  (let [iid (:db/id instr)
+        interval (day-interval date)]
+    (->> (d/q '[:find  (clj-time.coerce/to-long ?fqd)
+            :in $ ?qi ?date ?interval
+            :where
+                [?q :quote/type :quote.type/closing]
+                [?q :quote/at ?qd]
+                [?q :quote/instrument ?qi]
+                ;; [(clj-time.core/within? ?interval (clj-time.coerce/from-date ?date))]
+                [(clj-time.coerce/from-date ?qd) ?fqd]
+                ;; [(clj-time.core/within? ?interval ?fqd)]
+                ;;[(= ?date ?qd)]
+                ]
+              dbval iid date interval)
+         ffirst
+         (d/entity dbval))))
+
+(def t0 (coerce/from-date (java.util.Date.)))
+(add-quote conn b133 t0 8M 9M)
+(def quote (quote-for (d/db conn) (get-instr conn "b133") t0))
+(:quote/bid quote)
+(map (fn [k] k) quote)
+
+(time/day (coerce/from-date (java.util.Date.)))
+
+(uq/list-existing-values (d/db conn) :instrument/type)
+(uq/list-existing-values-e "b133" (d/db conn) :instrument/type)
+
+;; below is proper usage of day-of-datomic unique.clj
 (let [txid (ffirst (d/q '[:find ?e :where [?e :instrument/reference "b133"]] (d/db conn)))
       emap1 {:db/id (d/tempid :db.part/tx)
              :instrument/type "a1"}
       emap2 {:db/id (d/tempid :db.part/tx)
              :instrument/type "b1"}]
   (uq/assert-new-values-on conn txid :instrument/type [emap1 emap2] ))
-;; position
-(defn create-pos [conn acc ])
+(uq/existing-values (d/db conn) :instrument/type [:bond :fixed-income :x987 :b1 :b2])
 
+
+
+
+
+(uq/assert-on-emap conn b133map :instrument/type [:pp1 :pp2 :b2])
+
+;; position
+(defn position-for
+  "create-portfolio a position in an instrument. By position, we mean the value of a holding at a point in time."
+  [conn acc quote valfn]
+  (let [;;txid (d/tempid :db.part/tx)
+        ;; val (valfn (:account/balance acc) quote)
+        val 10]
+    ;; (d/transact conn [{:db/id txid
+    ;;                    :position/value-date ((clj-time.core/now))
+    ;;                    :position/value val
+    ;;                    :position/quote quote
+    ;;                    :position/account acc}]))
+    val
+    ))
+
+(let [acc (a/get-acc conn "a123")
+      instr (:account/instrument acc)]
+  (->> (quote-for instr (clj-time.core/date-time 20130515))
+       :quote/at)
+  )
+
+
+(clj-time.core/day (clj-time.core/now))
+(clj-time.core/date-time 20130515)
 (comment design
   p ->* p ->* acc
   portfolios are view across accounts, accounts belong to a legal entity and record all flows for an instrument.
