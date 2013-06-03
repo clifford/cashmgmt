@@ -29,7 +29,6 @@
                        :portfolio/reference ref
                        :portfolio/position accs}])))
 
-(create-portfolio conn "p1" [])
 (a/create-instrument conn "b133" :bond)
 (def b133 (a/get-instrument (d/db conn) "b133"))
 (a/create-acc conn "a123" 10M b133)
@@ -39,7 +38,6 @@
 (def a456 (a/get-acc conn "a456"))
 (:account/tag a123)
 (:account/tag a456)
-(create-portfolio conn "p2" [a123 a456])
 
 ;; verify that portfolio contains the account
 (i/portfolio-accs conn "p2" (partial map (fn [[k v]] (format "%s -> %s" k v))))

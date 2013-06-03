@@ -1,6 +1,7 @@
 (ns cashmgmt.acc-dsl
   (:use [datomic.api :only [q db] :as d]
-        [clojure.pprint])
+        [clojure.pprint]
+         [simulant.util :as sim])
   (:require [datomic.samples.repl :as util]
             [clojure.java.io :as io]
             [datomic.samples.io :as dio]
@@ -23,31 +24,34 @@ schema
 ;; instrument
 (defn create-instrument [conn instr types]
   (let [txid (d/tempid :db.part/tx)]
-    (d/transact conn [{:db/id txid
-                       :instrument/reference instr}
-                      [:db/add txid :instrument/type types]
-                      ;; (map #(:db/add txid :instrument/type %) types)
-                      ])))
+    (-> @(d/transact conn [{:db/id txid
+                        :instrument/reference instr}
+                       [:db/add txid :instrument/type types]
+                       ;; (map #(:db/add txid :instrument/type %) types)
+                       ])
+        (tx-ent txid))))
 
 (defn get-instrument [dbval ref]
   (qry/find-by dbval :instrument/reference ref))
-(create-instrument conn "b133" [:bond :fixed-income])
+(def b133 (create-instrument conn "b133" [:bond :fixed-income]))
 (def b133 (get-instrument (d/db conn) "b133"))
 
 ;; create account
 (defn create-acc [conn ref bal instr]
   (let [txid (d/tempid :db.part/tx)]
-   (d/transact conn [
-                     { :db/id txid
-                      :account/reference ref
-                      :account/tag :account.tag/avail
-                      :account/instrument (qry/e instr)
-                      :account/balance bal
-                      :account/min-balance -2M
-                      :account/max-balance 15M}
-                     ])))
+    (-> @(d/transact conn [
+                           { :db/id txid
+                            :account/reference ref
+                            :account/tag :account.tag/avail
+                            :account/instrument (qry/e instr)
+                            :account/balance bal
+                            :account/min-balance -2M
+                            :account/max-balance 15M}
+                           ])
+        (tx-ent txid))))
 
-(create-acc conn "a456" 7M (qry/e b133))
+(def a123 (create-acc conn "a123" 3M (qry/e b133)))
+(def a456 (create-acc conn "a456" 7M (qry/e b133)))
 
 (defn get-acc [conn ref]
   (->> (q '[:find ?e :where [?e :account/reference "a123"]] (db conn))
@@ -56,7 +60,6 @@ schema
 
 (:account/tag (get-acc conn "a123"))
 (def a123 (get-acc conn "a123"))
-(def a456 (get-acc conn "a456"))
 (:db/id (d/db conn) a456) ;; same result from :db/id and d/entid
 
 (defn balances [acc-ref]
@@ -67,6 +70,23 @@ schema
         [?e :account/max-balance ?mxb]] (db conn) acc-ref))
 (balances "a123")
 
+(defn balance
+  [db acc-id]
+  (let [adds (d/q '[:find ?adds ?tx
+                    :in $ ?trader
+                    :where
+                    [?tx :transfer/to ?trader]
+                    [?tx :transfer/amount ?adds]]
+                  db acc-id)
+        subtracts (d/q '[:find ?subtracts ?tx
+                         :in $ ?trader
+                         :where
+                         [?tx :transfer/from ?trader]
+                         [?tx :transfer/amount ?subtracts]]
+                       db acc-id)]
+    (+ (getx (d/entity db acc-id) :trader/initialBalance)
+       (apply + (map first adds))
+       (- (apply + (map first subtracts))))))
 
 
 (def balance-checker
