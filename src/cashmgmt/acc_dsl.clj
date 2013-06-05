@@ -71,23 +71,23 @@ schema
 (balances "a123")
 
 (defn balance
-  [db acc-id]
+  [db acc-id initial-balance]
   (let [adds (d/q '[:find ?adds ?tx
-                    :in $ ?trader
+                    :in $ ?account
                     :where
-                    [?tx :transfer/to ?trader]
-                    [?tx :transfer/amount ?adds]]
+                    [?tx :ot/cr ?account]
+                    [?tx :ot/amount ?adds]]
                   db acc-id)
         subtracts (d/q '[:find ?subtracts ?tx
-                         :in $ ?trader
+                         :in $ ?account
                          :where
-                         [?tx :transfer/from ?trader]
-                         [?tx :transfer/amount ?subtracts]]
+                         [?tx :ot/dr ?account]
+                         [?tx :ot/amount ?subtracts]]
                        db acc-id)]
-    (+ (getx (d/entity db acc-id) :trader/initialBalance)
+    (+ initial-balance
        (apply + (map first adds))
        (- (apply + (map first subtracts))))))
-
+(balance (d/db conn) (:db/id a123) 0M)
 
 (def balance-checker
   #db/fn {:lang :clojure
