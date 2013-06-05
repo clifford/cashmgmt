@@ -92,3 +92,12 @@
 
   ;; out: assert :db/add b133 :instrument/type :fixed-income
   )
+
+;; below is proper usage of day-of-datomic unique.clj
+(comment (let [txid (ffirst (d/q '[:find ?e :where [?e :instrument/reference "b133"]] (d/db conn)))
+       emap1 {:db/id (d/tempid :db.part/tx)
+              :instrument/type "a1"}
+       emap2 {:db/id (d/tempid :db.part/tx)
+              :instrument/type "b1"}]
+   (uq/assert-new-values-on conn txid :instrument/type [emap1 emap2] )))
+;; (uq/existing-values (d/db conn) :instrument/type [:bond :fixed-income :x987 :b1 :b2])

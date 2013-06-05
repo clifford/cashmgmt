@@ -53,12 +53,12 @@
 ;; (def a123 (get-acc conn "a123"))
 ;; (:db/id (d/db conn) a456) ;; same result from :db/id and d/entid
 
-(defn balances [acc-ref]
+(defn balances [dbval acc-ref]
   (d/q '[:find ?b ?mnb ?mxb :in $ ?r :where
         [?e :account/reference ?r]
         [?e :account/balance ?b]
         [?e :account/min-balance ?mnb]
-        [?e :account/max-balance ?mxb]] (db conn) acc-ref))
+        [?e :account/max-balance ?mxb]] dbval acc-ref))
 ;; (balances "a123")
 
 (defn balance
@@ -162,10 +162,10 @@
 ;; (balances "a456")
 
 ;; find all ot's for an account
-(defn txns [acc-ref]
+(defn txns [dbval acc-ref]
   (map (fn [[txid txinstant]]
          (let
-             [tx (d/entity (db conn)  txid)
+             [tx (d/entity dbval  txid)
               {amt :ot/amount note :ot/note when :ot/tx dr :ot/dr cr :ot/cr} tx]
            [dr cr amt note txinstant])
          ) (q '[:find ?txns ?when
@@ -174,12 +174,12 @@
                 [?a :account/reference ?ar]
                 [?a :account/transactions ?txns ?tx]
                 [?tx :db/txInstant ?when]]
-      (db conn)
+              dbval
       acc-ref)))
 
 
-(def tx-instants (reverse (sort (d/q '[:find ?when :where [_ :db/txInstant ?when]]
-                                     (d/db conn)))))
+(comment (def tx-instants (reverse (sort (d/q '[:find ?when :where [_ :db/txInstant ?when]]
+                                      (d/db conn))))))
 
 
 ;; (pprint (sort #(compare (last %1) (last %2))
@@ -193,8 +193,8 @@
 ;;                       (d/since #inst "2013-03-16")
 ;;                       )))))
 
-(defn balance-deltas-since [t]
-  (let [db (-> (db conn) (d/since t))]
+(defn balance-deltas-since [dbval t]
+  (let [db (-> dbval (d/since t))]
     (seq (q '[:find ?e ?b ?t
               :where
              [?tx :db/txInstant ?t]
@@ -207,10 +207,10 @@
 ;; (distinct (map :e (d/datoms (d/since (db conn) #inst "2013-03-16T11:34:15.925-00:00") :eavt)))
 
 ;; now use clojure threading macros
-(def changed (->> (-> (db conn)
-          (d/since #inst "2013-03-16T11:34:15.925-00:00")
-          (d/datoms :eavt))
-      (map :e)
-      distinct))
+(comment (def changed (->> (-> (db conn)
+                       (d/since #inst "2013-03-16T11:34:15.925-00:00")
+                       (d/datoms :eavt))
+                   (map :e)
+                   distinct)))
 
 ;; (pprint (map #(seq (d/entity (db conn) %)) changed))
