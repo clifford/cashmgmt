@@ -16,5 +16,3 @@
 ;; input -> revalue(new-price) fn
 ;; fn under test -> rebalance
 ;; output -> ratios fn
-
-(cm/create-acc "a789" 9M)
