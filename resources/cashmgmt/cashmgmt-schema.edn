@@ -90,8 +90,22 @@
  {:db/id #db/id [:db.part/db]
   :db/ident :portfolio/vfunc
   :db/valueType :db.type/fn
-  :db.cardinality :db.cardinality/one
+  :db/cardinality :db.cardinality/one
   :db.install/_attribute :db.part/db}
+
+;; vfuncs
+{:db/id #db/id [:db.part/db]
+ :db/ident :vfuncs/valuable
+ :db/valueType :db.type/ref
+ :db/cardinality :db.cardinality/one
+ :db/index true
+ :db/unique :db.unique/identity
+ :db.install/_attribute :db.part/db}
+{:db/id #db/id [:db.part/db]
+ :db/ident :vfuncs/function
+ :db/valueType :db.type/fn
+ :db/cardinality :db.cardinality/one
+ :db.install/_attribute :db.part/db}
 
 ;; account
  {:db/id #db/id [:db.part/db],

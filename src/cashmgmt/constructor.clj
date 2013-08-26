@@ -1,5 +1,5 @@
 ;; work through at the REPL, evaulating each form
-(use 'datomic.samples.repl)
+(use 'cashmgmt.repl)
 (easy!)
 
 (def conn (scratch-conn))

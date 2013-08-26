@@ -1,10 +1,8 @@
 (ns cashmgmt.portfolio
   (:require [datomic.api :only [q db] :as d]
-            [datomic.samples.repl :as u]
-            [clojure.java.io :as io]
             [cashmgmt.account :as a]
             [cashmgmt.introspect :as i]
-            [datomic.samples.query :as qry]
+            [cashmgmt.util.query :as qry]
             [cashmgmt.util.unique :as uq]
             [cashmgmt.util.emap :as e]
             [cashmgmt.util.date :as date]
@@ -146,7 +144,7 @@
 ;; (uq/assert-on-emap conn b133map :instrument/type [:pp1 :pp2 :b2])
 
 ;; valuation func
-(def vfunc
+(def ut
   #db/fn {:lang :clojure
           :params [dbval instr-id quote-id qty]
           :code (let [quote (d/entity dbval quote-id)
@@ -155,9 +153,6 @@
                     (* price qty)
                     0M))}
   )
-
-;; install the valuation function - needs to move elsewhere
-;;(d/transact dbval )
 
 
 ;; position

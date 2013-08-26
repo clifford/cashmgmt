@@ -2,10 +2,8 @@
   (:use [datomic.api :only [q db] :as d]
         [clojure.pprint]
          [simulant.util :as sim])
-  (:require [datomic.samples.repl :as util]
-            [clojure.java.io :as io]
-            [datomic.samples.io :as dio]
-            [datomic.samples.query :as qry])
+  (:require [clojure.java.io :as io]
+            [cashmgmt.util.query :as qry])
   (:import [java.lang Exception]))
 
 ;; (def conn (util/scratch-conn))
@@ -147,8 +145,8 @@
 ;; transfer implemented as an ordinary function
 (defn transfer [db from to amount note]
   (let [txid (d/tempid :db.part/tx)
-        fromid (datomic.samples.query/e from)
-        toid (datomic.samples.query/e to)]
+        fromid (cashmgmt.util.query/e from)
+        toid (cashmgmt.util.query/e to)]
     (d/transact db [[:account/credit from (- amount)]
                       [:account/credit to amount]
                       [:db/add fromid :account/transactions txid]

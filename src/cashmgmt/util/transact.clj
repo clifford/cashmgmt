@@ -6,9 +6,9 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns cashmgmt.transact
+(ns cashmgmt.util.transact
   (:require [datomic.api :as d]
-            [datomic.samples.query :as q]))
+            [cashmgmt.util.query :as q]))
 
 (defn install
   "Install txdata and return the single new entity possessing attr"

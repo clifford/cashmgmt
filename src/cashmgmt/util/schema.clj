@@ -1,4 +1,4 @@
-(ns cashmgmt.schema
+(ns cashmgmt.util.schema
   (:require [datomic.api :as d]))
 
 (defn cardinality
@@ -72,5 +72,3 @@
                                  tx)))
           (throw (ex-info (str "No data provided for schema" schema-name)
                           {:schema/missing schema-name})))))))
-
-

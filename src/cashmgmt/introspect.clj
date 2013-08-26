@@ -1,6 +1,6 @@
 (ns cashmgmt.introspect
   (:require [datomic.api :only [db q] :as d]
-            [datomic.samples.query :as qry]))
+            [cashmgmt.util.query :as qry]))
 
 (defn portfolio-accs [conn portfolio f]
   "describe accounts on this portfolio"

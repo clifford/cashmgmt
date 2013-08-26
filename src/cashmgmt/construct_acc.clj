@@ -1,7 +1,7 @@
 ;; work through at the REPL, evaulating each form
 (ns cashmgmt.construct-acc
   (:use [datomic.api :only [q db] :as d])
-  (:require [datomic.samples.repl :as dod]))
+  (:require [cashmgmt.util.repl :as dod]))
 
 
 (def construct-account-map

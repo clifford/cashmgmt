@@ -9,7 +9,7 @@
 (ns cashmgmt.util.unique
   (:require [clojure.set :as set]
             [datomic.api :as d]
-            [cashmgmt.query :as qry]))
+            [cashmgmt.util.query :as qry]))
 
 (defn existing-values
   "Returns subset of values that already exist as unique
